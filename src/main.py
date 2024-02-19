@@ -15,11 +15,11 @@ from collections import defaultdict
 
 from process_bam import get_all_reads_parallel, update_coverage_hist, get_segments_coverage, haplotype_update_all_bins_parallel, get_snps_frequencies
 from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean
-from phase_correction import generate_phasesets_bins, phaseblock_flipping, phase_correction_centers
+from phase_correction import generate_phasesets_bins, phaseblock_flipping, phase_correction_centers, contiguous_phaseblocks, detect_centromeres, flip_phaseblocks_contigous
 from utils import get_chromosomes_bins, write_segments_coverage, csv_df_chromosomes_sorter, get_snps_frquncies_coverage_from_bam, \
-                    infer_missing_phaseblocks, update_phasesets_coverage_with_missing_phasesets, df_chromosomes_sorter
+                    infer_missing_phaseblocks, df_chromosomes_sorter
 from extras import get_contigs_list
-from plots import plot_coverage_data, change_point_detection
+from plots import plot_coverage_data, change_point_detection, plot_coverage_data_after_correction
 from cpd import cpd_positions_means
 
 def main():
@@ -150,6 +150,8 @@ def main():
     if os.path.exists('data'):
         shutil.rmtree('data')
         os.mkdir('data')
+    else:
+        os.mkdir('data')
 
     thread_pool = Pool(args.threads)
 
@@ -197,9 +199,9 @@ def main():
         csv_df_coverage = csv_df_chromosomes_sorter('data/coverage.csv', ['chr', 'start', 'end', 'hp1', 'hp2', 'hp3'])
 
         #Missing phaseblocks and coverage added
-        phasesets_coverage_missing = update_phasesets_coverage_with_missing_phasesets(chroms, csv_df_phasesets, args.target_bam[0], coverage_histograms)
-        write_segments_coverage(phasesets_coverage_missing, 'coverage_ps_missing.csv')
-        csv_df_phasesets_missing = csv_df_chromosomes_sorter('data/coverage_ps_missing.csv', ['chr', 'start', 'end', 'hp1', 'hp2', 'hp3'])
+        #phasesets_coverage_missing = update_phasesets_coverage_with_missing_phasesets(chroms, csv_df_phasesets, args.target_bam[0], coverage_histograms)
+        #write_segments_coverage(phasesets_coverage_missing, 'coverage_ps_missing.csv')
+        #csv_df_phasesets_missing = csv_df_chromosomes_sorter('data/coverage_ps_missing.csv', ['chr', 'start', 'end', 'hp1', 'hp2', 'hp3'])
 
         del coverage_histograms
 
@@ -238,9 +240,26 @@ def main():
             #                        html_graphs, 2, color='#2E8B57')
 
             ##################################
+            ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets = detect_centromeres(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean, ref_start_values, arguments['bin_size'])
+            ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets = infer_missing_phaseblocks(ref_start_values, ref_end_values, ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean, arguments['bin_size'])
+
             is_simple_correction = False
             snps_haplotype1_mean, snps_haplotype2_mean, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets = \
                 phaseblock_flipping(chrom, arguments, is_simple_correction, snps_haplotype1_mean, snps_haplotype2_mean, ref_start_values, ref_start_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+
+            haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2 = contiguous_phaseblocks(
+                haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+
+            haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean = flip_phaseblocks_contigous(
+                haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1,
+                haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2,
+                ref_start_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets,
+                ref_start_values_phasesets, ref_end_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean)
+
+            plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_values, snps_haplotype1_mean,
+                               snps_haplotype2_mean, unphased_reads_values, haplotype_1_values_phasesets,
+                               haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets,
+                               "with_phase_correction_0")
             ##################################
             #cpd_haplotype1_mean, cpd_haplotype1_start, cpd_haplotype1_end,  cpd_haplotype2_mean, cpd_haplotype2_start, cpd_haplotype2_end = cpd_positions_means(snps_haplotype1_mean, snps_haplotype2_mean, arguments)
 
@@ -258,8 +277,10 @@ def main():
 
             #print(cpd_haplotype2_mean,cpd_haplotype2_end-cpd_haplotype2_start)
             ##################################
-            plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_values, snps_haplotype1_mean,
-                               snps_haplotype2_mean, unphased_reads_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets, "phase_correction")
+            haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2 = contiguous_phaseblocks(
+                haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+            plot_coverage_data_after_correction(html_graphs, arguments, chrom, ref_start_values, ref_end_values, snps_haplotype1_mean,
+                               snps_haplotype2_mean, unphased_reads_values, haplotype_1_values_phasesets_conti, haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2, "phase_correction")
     html_graphs.write("</body></html>")
 
     # TODO call edit VCF functionality from process_vcf() here

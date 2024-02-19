@@ -143,25 +143,40 @@ def mean_values(selected_list, start_index, end_index):
     else:
         return 0.0
 
-def infer_missing_phaseblocks(bam_file, chrom, ref_start_values_phasesets, ref_end_values_phasesets):
-
-    head, tail = os.path.split(bam_file)
-    bed = []
+def infer_missing_phaseblocks(ref_start_values, ref_end_values, ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, haplotype_1_values, haplotype_2_values, bin_size):
+    import statistics
+    missing_segments_starts = []
+    missing_segments_ends = []
+    missing_segments_hp1_value = []
+    missing_segments_hp2_value = []
     for i in range(len(ref_start_values_phasesets)-1):
-        if ref_start_values_phasesets[i +1] - ref_end_values_phasesets[i] > 1:
-            bed.append([tail, chrom, ref_end_values_phasesets[i] + 1, ref_start_values_phasesets[i+1] - 1])
+        if ref_start_values_phasesets[i +1] - ref_end_values_phasesets[i] > bin_size * 6:
+            start = ((ref_end_values_phasesets[i]//bin_size) +1) * bin_size + 1
+            end = (ref_start_values_phasesets[i+1]//bin_size) * bin_size
+            missing_segments_starts.append(start)#(ref_end_values_phasesets[i] + 1)
+            missing_segments_ends.append(end)#(ref_start_values_phasesets[i+1] - 1)
+            try:
+                missing_segments_hp1_value.append(statistics.mean(list(filter(lambda zer: zer != 0, haplotype_1_values[ref_start_values.index(start):ref_end_values.index(end)]))))
+            except:
+                missing_segments_hp1_value.append(0)
+            try:
+                missing_segments_hp2_value.append(statistics.mean(list(filter(lambda zer: zer != 0, haplotype_2_values[ref_start_values.index(start):ref_end_values.index(end)]))))
+            except:
+                missing_segments_hp2_value.append(0)
 
-    return bed
+    if len(missing_segments_starts):
+        ref_start_values_phasesets = ref_start_values_phasesets + missing_segments_starts
+        ref_end_values_phasesets = ref_end_values_phasesets + missing_segments_ends
+        haplotype_1_values_phasesets = haplotype_1_values_phasesets + missing_segments_hp1_value
+        haplotype_2_values_phasesets = haplotype_2_values_phasesets + missing_segments_hp2_value
 
-def update_phasesets_coverage_with_missing_phasesets(chroms, csv_df_phasesets, bam, coverage_histograms):
-    coverage = []
-    for index, chrom in enumerate(chroms):
-        csv_df_phaseset = csv_df_phasesets[csv_df_phasesets['chr'] == chrom]
-        ref_start_values_phasesets = csv_df_phaseset.start.values.tolist()
-        ref_end_values_phasesets = csv_df_phaseset.end.values.tolist()
+        sort_function = lambda x: x[0]
+        sort_target = list(zip(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets))
+        sort_target.sort(key=sort_function)
 
-        missing_ps_segments = infer_missing_phaseblocks(bam, chrom, ref_start_values_phasesets, ref_end_values_phasesets)
-        missing_ps_coverage = get_segments_coverage(missing_ps_segments, coverage_histograms)
-        coverage.extend(missing_ps_coverage)
+        ref_start_values_phasesets = [a for a, b, c, d in sort_target]
+        ref_end_values_phasesets = [b for a, b, c, d in sort_target]
+        haplotype_1_values_phasesets = [c for a, b, c, d in sort_target]
+        haplotype_2_values_phasesets = [d for a, b, c, d in sort_target]
 
-    return coverage
+    return ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets

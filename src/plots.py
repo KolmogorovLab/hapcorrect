@@ -28,8 +28,6 @@ def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_
         add_scatter_trace_phaseblocks(fig, phaseblocks_positions, haplotype_1_phaseblocks_values,
                                       haplotype_2_phaseblocks_values)
 
-
-
     plots_layout_settings(fig, chrom, arguments, ref_end_values[-1:][0], arguments['cut_threshold'])
 
     if arguments['pdf_enable']:
@@ -39,6 +37,42 @@ def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_
     html_graphs.write(
         "  <object data=\"" + chrom + '_' + sufix + '.html' + "\" width=\"700\" height=\"420\"></object>" + "\n")
 
+
+def plot_coverage_data_after_correction(html_graphs, arguments, chrom, ref_start_values, ref_end_values, haplotype_1_values, haplotype_2_values, unphased_reads_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2, sufix):
+    fig = go.Figure()
+    add_scatter_trace_coverage(fig, ref_start_values, haplotype_1_values, name='HP-1', text=None, yaxis=None,
+                               opacity=0.7, color='firebrick')
+    add_scatter_trace_coverage(fig, ref_start_values, haplotype_2_values, name='HP-2', text=None, yaxis=None,
+                               opacity=0.7, color='steelblue')
+
+    if arguments['unphased_reads_coverage_enable']:
+        add_scatter_trace_coverage(fig, ref_start_values, unphased_reads_values, name='Unphased', text=None,
+                                   yaxis=None, opacity=0.7, color='olive')
+    plots_add_markers_lines(fig)
+
+    if arguments['phaseblocks_enable']:
+        gaps_values_hp1 = np.full(len(haplotype_1_values_phasesets), 'None')
+        gaps_values_hp2 = np.full(len(haplotype_2_values_phasesets), 'None')
+        haplotype_1_phaseblocks_values = list(
+            itertools.chain.from_iterable(zip(haplotype_1_values_phasesets, haplotype_1_values_phasesets, gaps_values_hp1)))
+        haplotype_2_phaseblocks_values = list(
+            itertools.chain.from_iterable(zip(haplotype_2_values_phasesets, haplotype_2_values_phasesets, gaps_values_hp2)))
+        phaseblocks_positions_hp1 = list(
+            itertools.chain.from_iterable(zip(ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, gaps_values_hp1)))
+        phaseblocks_positions_hp2 = list(
+            itertools.chain.from_iterable(zip(ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2, gaps_values_hp2)))
+
+        add_scatter_trace_phaseblocks_seperate(fig, phaseblocks_positions_hp1, phaseblocks_positions_hp2, haplotype_1_phaseblocks_values,
+                                      haplotype_2_phaseblocks_values)
+
+    plots_layout_settings(fig, chrom, arguments, ref_end_values[-1:][0], arguments['cut_threshold'])
+
+    if arguments['pdf_enable']:
+        print_chromosome_pdf(fig, chrom, arguments['out_dir_plots'])
+
+    print_chromosome_html(fig, chrom + '_' + sufix, html_graphs, arguments['out_dir_plots'])
+    html_graphs.write(
+        "  <object data=\"" + chrom + '_' + sufix + '.html' + "\" width=\"700\" height=\"420\"></object>" + "\n")
 
 def change_point_detection(data, start, ends, arguments, chrom, html_graphs, hp, color):
     import ruptures as rpt
@@ -174,6 +208,45 @@ def plots_layout_settings(fig, chrom, arguments, limit_x, limit_y):
         width=680,
         height=400,
        )
+
+def add_scatter_trace_phaseblocks_seperate(fig, phaseblocks_positions_hp1, phaseblocks_positions_hp2, haplotype_1_phaseblocks_values, haplotype_2_phaseblocks_values):
+    fig.add_trace(go.Scatter(
+        #legendgroup="group3",  # this can be any string, not just "group"
+        #legendgrouptitle_text="Phaseblocks",
+        x=phaseblocks_positions_hp1,
+        y=haplotype_1_phaseblocks_values,
+        name="HP-1",
+        text=phaseblocks_positions_hp1,
+        #yaxis="y5",
+        line = dict(shape = 'spline', color = 'gray', width= 1, dash = 'solid'),
+        mode='lines+markers',
+        marker={"size": 5},
+        opacity=0.5,
+        marker_color=['dimgray', 'darkgray', 'white']*len(phaseblocks_positions_hp1),
+        showlegend=True,
+        marker_symbol='diamond-wide',
+        hoverinfo = "x+name+y+text",
+        #legendgroup="group2",
+        #legendgrouptitle_text="Phaseblocks",
+    ))
+
+    fig.add_trace(go.Scatter(
+        #legendgroup="group3",
+        x=phaseblocks_positions_hp2,
+        y=haplotype_2_phaseblocks_values,
+        name="HP-2",
+        text=phaseblocks_positions_hp2,
+        #yaxis="y5",
+        line = dict(shape = 'spline', color = 'green', width= 1, dash = 'solid'),
+        mode='lines+markers',
+        marker={"size": 5},
+        opacity=0.5,
+        marker_color=['darkgreen', 'limegreen', 'white']*len(phaseblocks_positions_hp2),
+        showlegend=True,
+        marker_symbol='diamond-wide',
+        hoverinfo = "x+name+y+text",
+        #legendgroup="group2",
+    ))
 
 def add_scatter_trace_phaseblocks(fig, phaseblocks_positions, haplotype_1_phaseblocks_values, haplotype_2_phaseblocks_values):
     fig.add_trace(go.Scatter(

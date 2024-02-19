@@ -2,6 +2,7 @@ import os
 import statistics
 import numpy as np
 from utils import csv_df_chromosomes_sorter, write_segments_coverage
+from process_vcf import squash_regions
 
 def generate_phasesets_bins(bam, path, bin_size, arguments):
     return get_phasesets_bins(bam, path, bin_size, arguments)
@@ -110,8 +111,8 @@ def phaseblock_flipping(chrom, arguments, is_simple_correction, haplotype_1_valu
         #                haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
 
         #bins without phaseblocks
-        #bins_without_phaseblocks(chrom, arguments, max_value_index, values_ps, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
-        #                haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+        bins_without_phaseblocks(chrom, arguments, max_value_index, values_ps, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
+                        haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
 
         #amplified signals
         #
@@ -154,8 +155,8 @@ def phaseblock_flipping(chrom, arguments, is_simple_correction, haplotype_1_valu
 def scan_and_update_phaseswitches_inside_phaseblocks(values_ps, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
                     haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
     for index, value_ps in enumerate(values_ps):
-        #if value_ps[0] == 42066420 or value_ps[0] == 72346221 or value_ps[0] == 72108881:#72346221:#132135757:#177448845:#81331913:#72346221:
-        #    print("here")
+        if value_ps[0] == 113196847 :#and value_ps[1] == 143633540:# or value_ps[0] == 72108881:#72346221:#132135757:#177448845:#81331913:#72346221:
+            print("here")
         #print(value_ps[0])
 
         internal_bins = [i for i in ref_start_values if i >= value_ps[0] and i <= value_ps[1]]
@@ -224,6 +225,18 @@ def scan_and_update_phaseswitches_inside_phaseblocks(values_ps, haplotype_1_valu
                     last_value.append(ref_end_values[haplotype_2_higher[i][-1]])
                     mean_value_haplotype_1.append(statistics.mean(haplotype_1_values[haplotype_2_higher[i][0]:haplotype_2_higher[i][-1]]))
                     mean_value_haplotype_2.append(statistics.mean(haplotype_2_values[haplotype_2_higher[i][0]:haplotype_2_higher[i][-1]]))
+
+            #first_value = sorted(first_value)
+            #last_value = sorted(last_value)
+            if len(first_value) > 1:
+                sort_function = lambda x: x[0]
+                sort_target = list(zip(first_value, last_value, mean_value_haplotype_1, mean_value_haplotype_2))
+                sort_target.sort(key=sort_function)
+
+                first_value = [a for a,b,c,d in sort_target]
+                last_value = [b for a,b,c,d in sort_target]
+                mean_value_haplotype_1 = [c for a,b,c,d in sort_target]
+                mean_value_haplotype_2 = [d for a,b,c,d in sort_target]
 
             # if last_value and last_index > ref_end_values.index(last_value[-1]) + 10:
             #     first_value.append(last_value[-1]+1)
@@ -522,13 +535,6 @@ def scan_and_update_phaseblocks_switch_errors(chrom, arguments, max_value_index,
 def bins_without_phaseblocks(chrom, arguments, max_value_index, values_ps, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
                     haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
 
-    bins_without_phaseblocks_start = []
-    bins_without_phaseblocks_end = []
-    for i in range(len(ref_start_values_phasesets)-1):
-        if ref_start_values_phasesets[i +1] - ref_end_values_phasesets[i] > 1:
-            bins_without_phaseblocks_start.append(ref_end_values_phasesets[i] + 1)
-            bins_without_phaseblocks_end.append(ref_start_values_phasesets[i+1] - 1)
-
     print("here")
 
     # if haplotype_1_values_phasesets[max_value_index] > haplotype_2_values_phasesets[max_value_index] or haplotype_1_values_phasesets[max_value_index] == haplotype_2_values_phasesets[max_value_index]:
@@ -653,3 +659,159 @@ def phase_correction_centers(arguments, segs_hp1_state, segs_hp1_start, segs_hp1
                     haplotype_2_values[i] = new_hp1
 
     return haplotype_1_values, haplotype_2_values, processed
+
+def contiguous_phaseblocks(haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
+    THRESHOLD = 8
+    contiguous_hp1_start = []
+    contiguous_hp1_end = []
+    hp1_values = []
+    contiguous_hp1_start.append(ref_start_values_phasesets[0])
+    hp1_value = []
+    for i in range(len(ref_start_values_phasesets) - 1):
+        current_value_hp1 = haplotype_1_values_phasesets[i]
+        hp1_value.append(haplotype_1_values_phasesets[i])
+        if not haplotype_1_values_phasesets[i+1] - THRESHOLD < current_value_hp1 < haplotype_1_values_phasesets[i+1] + THRESHOLD :
+            contiguous_hp1_start.append(ref_start_values_phasesets[i+1])
+            contiguous_hp1_end.append(ref_start_values_phasesets[i+1]-1)
+            hp1_values.append(statistics.mean(hp1_value))
+            hp1_value.clear()
+    contiguous_hp1_end.append(ref_end_values_phasesets[-1])
+    if len(contiguous_hp1_start) > 2:
+        hp1_values.append(statistics.mean(haplotype_1_values_phasesets[ref_start_values_phasesets.index(contiguous_hp1_start[-2]):ref_start_values_phasesets.index(ref_start_values_phasesets[-1])]))
+    else:
+        hp1_values.append(0)
+
+    contiguous_hp2_start = []
+    contiguous_hp2_end = []
+    hp2_values = []
+    contiguous_hp2_start.append(ref_start_values_phasesets[0])
+    hp2_value = []
+    for i in range(len(ref_start_values_phasesets) - 1):
+        current_value_hp2 = haplotype_2_values_phasesets[i]
+        hp2_value.append(haplotype_2_values_phasesets[i])
+        if not haplotype_2_values_phasesets[i+1] - THRESHOLD < current_value_hp2 < haplotype_2_values_phasesets[i+1] + THRESHOLD :
+            contiguous_hp2_start.append(ref_start_values_phasesets[i+1])
+            contiguous_hp2_end.append(ref_start_values_phasesets[i+1]-1)
+            hp2_values.append(statistics.mean(hp2_value))
+            hp2_value.clear()
+    contiguous_hp2_end.append(ref_end_values_phasesets[-1])
+    if len(contiguous_hp2_start) > 2:
+        hp2_values.append(statistics.mean(haplotype_2_values_phasesets[ref_start_values_phasesets.index(contiguous_hp2_start[-2]):ref_start_values_phasesets.index(ref_start_values_phasesets[-1])]))
+    else:
+        hp2_values.append(0)
+
+    return hp1_values, contiguous_hp1_start, contiguous_hp1_end, hp2_values, contiguous_hp2_start, contiguous_hp2_end
+
+def flip_phaseblocks_contigous(hp1_values, contiguous_hp1_start, contiguous_hp1_end, hp2_values, contiguous_hp2_start, contiguous_hp2_end, ref_start_values, haplotype_1_values_phasesets,
+                               haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values, haplotype_2_values):
+    THRESHOLD = 10
+    diff_hp1 = []
+    max_value = []
+    for index, value in enumerate(contiguous_hp1_start):
+        diff_hp1.append(contiguous_hp1_end[index] - contiguous_hp1_start[index])
+    if len(diff_hp1) > 1:
+        for i in range(2):
+            max_value.append(hp1_values[diff_hp1.index(sorted(diff_hp1, reverse=True)[i])])#diff_hp1.index(max(diff_hp1))
+            print(max_value)
+        max_value = sorted(max_value, reverse=True)
+        if max_value[0] - max_value[1] < 8:
+            max_value.pop(1)
+    else:
+        max_value.append(hp1_values[diff_hp1.index(diff_hp1[0])])
+    print(max_value)
+    value_ps_updated = []
+    for a in range(len(max_value)):
+        for i, val in enumerate(ref_start_values_phasesets):
+            value_ps = [ref_start_values_phasesets[i], ref_end_values_phasesets[i]]
+            if haplotype_2_values_phasesets[i] - THRESHOLD < max_value[a] < haplotype_2_values_phasesets[i] + THRESHOLD and \
+                not haplotype_1_values_phasesets[i] - THRESHOLD < max_value[a] < haplotype_1_values_phasesets[i] + THRESHOLD and \
+                    not value_ps[0] in value_ps_updated:
+
+                value_ps_updated.append(value_ps[0])
+                internal_bins = [k for k in ref_start_values if k >= value_ps[0] and k <= value_ps[1]]
+                if internal_bins:
+                    i = ref_start_values.index(internal_bins[0])
+                    new_hp2_ps = haplotype_2_values_phasesets[ref_start_values_phasesets.index(value_ps[0])]
+                    new_hp1_ps = haplotype_1_values_phasesets[ref_start_values_phasesets.index(value_ps[0])]
+                    haplotype_1_values_phasesets[ref_start_values_phasesets.index(value_ps[0])] = new_hp2_ps
+                    haplotype_2_values_phasesets[ref_start_values_phasesets.index(value_ps[0])] = new_hp1_ps
+
+                    for j in range(len(internal_bins)):
+                        # if haplotype_1_values[i] < haplotype_2_values[i]:
+                        new_hp2 = haplotype_2_values[i]
+                        new_hp1 = haplotype_1_values[i]
+                        haplotype_1_values[i] = new_hp2
+                        haplotype_2_values[i] = new_hp1
+                        i = i + 1
+
+    # diff_hp2 = []
+    # max_value = []
+    # for index, value in enumerate(contiguous_hp2_start):
+    #     diff_hp2.append(contiguous_hp2_end[index] - contiguous_hp2_start[index])
+    # if len(diff_hp2) > 1:
+    #     for i in range(2):
+    #         max_value.append(hp2_values[diff_hp2.index(sorted(diff_hp2, reverse=True)[i])])#diff_hp1.index(max(diff_hp1))
+    #         print(max_value)
+    #     max_value = sorted(max_value)
+    #     if max_value[1] - max_value[0] < 8:
+    #         max_value.pop(1)
+    # else:
+    #     max_value.append(hp2_values[diff_hp2.index(diff_hp2[0])])
+    # print(max_value)
+    # for b in range(len(max_value)):
+    #     for i, val in enumerate(ref_start_values_phasesets):
+    #         value_ps = [ref_start_values_phasesets[i], ref_end_values_phasesets[i]]
+    #         if haplotype_1_values_phasesets[i] - THRESHOLD < max_value[b] < haplotype_1_values_phasesets[i] + THRESHOLD and \
+    #                 not haplotype_2_values_phasesets[i] - THRESHOLD < max_value[b] < haplotype_2_values_phasesets[i] + THRESHOLD and \
+    #                 not value_ps[0] in value_ps_updated:
+    #
+    #             value_ps_updated.append(value_ps[0])
+    #             internal_bins = [k for k in ref_start_values if k >= value_ps[0] and k <= value_ps[1]]
+    #             if internal_bins:
+    #                 i = ref_start_values.index(internal_bins[0])
+    #                 new_hp2_ps = haplotype_2_values_phasesets[ref_start_values_phasesets.index(value_ps[0])]
+    #                 new_hp1_ps = haplotype_1_values_phasesets[ref_start_values_phasesets.index(value_ps[0])]
+    #                 haplotype_1_values_phasesets[ref_start_values_phasesets.index(value_ps[0])] = new_hp2_ps
+    #                 haplotype_2_values_phasesets[ref_start_values_phasesets.index(value_ps[0])] = new_hp1_ps
+    #
+    #                 for j in range(len(internal_bins)):
+    #                     # if haplotype_1_values[i] < haplotype_2_values[i]:
+    #                     new_hp2 = haplotype_2_values[i]
+    #                     new_hp1 = haplotype_1_values[i]
+    #                     haplotype_1_values[i] = new_hp2
+    #                     haplotype_2_values[i] = new_hp1
+    #                     i = i + 1
+
+    return haplotype_1_values_phasesets, haplotype_2_values_phasesets, haplotype_1_values, haplotype_2_values
+def detect_centromeres(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, hap_1_values, hap_2_values, ref_start_values, bin_size):
+    centromere_bins = []
+    for i in range(len(ref_start_values)):
+        if hap_1_values[i] == 0 and hap_2_values[i] == 0:
+            centromere_bins.append(ref_start_values[i])
+            centromere_bins.append(ref_start_values[i] + bin_size)
+
+    centromere_region_starts, centromere_region_ends = squash_regions(centromere_bins, bin_size)
+    region_starts = []
+    region_ends = []
+    for i, (start,end) in enumerate(zip(centromere_region_starts, centromere_region_ends)):
+        if end - start > bin_size * 6:
+            region_starts.append(start)
+            region_ends.append(end)
+    if len(region_starts):
+        ref_start_values_phasesets = ref_start_values_phasesets + region_starts
+        ref_end_values_phasesets = ref_end_values_phasesets + region_ends
+        haplotype_1_values_phasesets = haplotype_1_values_phasesets + [0 for i in range(len(region_starts))]
+        haplotype_2_values_phasesets = haplotype_2_values_phasesets + [0 for i in range(len(region_starts))]
+
+        sort_function = lambda x: x[0]
+        sort_target = list(zip(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets))
+        sort_target.sort(key=sort_function)
+
+        ref_start_values_phasesets = [a for a, b, c, d in sort_target]
+        ref_end_values_phasesets = [b for a, b, c, d in sort_target]
+        haplotype_1_values_phasesets = [c for a, b, c, d in sort_target]
+        haplotype_2_values_phasesets = [d for a, b, c, d in sort_target]
+
+    return ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets
+
+
