@@ -1,8 +1,10 @@
 import plotly.graph_objects as go
 import plotly
+import numpy as np
 import os
+import itertools
 
-def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_values, haplotype_1_values, haplotype_2_values, unphased_reads_values, sufix):
+def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_values, haplotype_1_values, haplotype_2_values, unphased_reads_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets, sufix):
     fig = go.Figure()
     add_scatter_trace_coverage(fig, ref_start_values, haplotype_1_values, name='HP-1', text=None, yaxis=None,
                                opacity=0.7, color='firebrick')
@@ -14,6 +16,20 @@ def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_
                                    yaxis=None, opacity=0.7, color='olive')
     plots_add_markers_lines(fig)
 
+    if arguments['phaseblocks_enable']:
+        gaps_values = np.full(len(haplotype_1_values_phasesets), 'None')
+        haplotype_1_phaseblocks_values = list(
+            itertools.chain.from_iterable(zip(haplotype_1_values_phasesets, haplotype_1_values_phasesets, gaps_values)))
+        haplotype_2_phaseblocks_values = list(
+            itertools.chain.from_iterable(zip(haplotype_2_values_phasesets, haplotype_2_values_phasesets, gaps_values)))
+        phaseblocks_positions = list(
+            itertools.chain.from_iterable(zip(ref_start_values_phasesets, ref_end_values_phasesets, gaps_values)))
+
+        add_scatter_trace_phaseblocks(fig, phaseblocks_positions, haplotype_1_phaseblocks_values,
+                                      haplotype_2_phaseblocks_values)
+
+
+
     plots_layout_settings(fig, chrom, arguments, ref_end_values[-1:][0], arguments['cut_threshold'])
 
     if arguments['pdf_enable']:
@@ -22,6 +38,28 @@ def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_
     print_chromosome_html(fig, chrom + '_' + sufix, html_graphs, arguments['out_dir_plots'])
     html_graphs.write(
         "  <object data=\"" + chrom + '_' + sufix + '.html' + "\" width=\"700\" height=\"420\"></object>" + "\n")
+
+
+def change_point_detection(data, start, ends, arguments, chrom, html_graphs, hp, color):
+    import ruptures as rpt
+    fig = go.Figure()
+    #starts = [i for i in range(0, len(data), 50000)]
+    add_scatter_trace_coverage(fig, start, data, name='HP-'+str(hp), text=None, yaxis=None,
+                               opacity=0.7, color=color)
+
+    data = np.array(data, dtype='int') #numpy.clip(data, a_min=0, a_max=1000)
+    algo = rpt.Pelt(model="rbf", jump=25).fit(data)
+    result = algo.predict(pen=10)
+    change_points = [i for i in result if i < len(data)]
+    for i, point in enumerate(change_points):
+        fig.add_vline(x=point*50000, y0=-10, y1=500, line_width=1, line_dash="dash",
+                  line_color=color)
+
+    plots_add_markers_lines(fig)
+    plots_layout_settings(fig, chrom, arguments, ends[-1:][0], arguments['cut_threshold'])
+
+    print_chromosome_html(fig, chrom + '_hp_'  + str(hp), html_graphs, arguments['out_dir_plots'])
+    html_graphs.write("  <object data=\"" + chrom + '_hp_'  + str(hp)  + '.html' + "\" width=\"700\" height=\"420\"></object>" + "\n")
 
 
 def print_chromosome_pdf(fig, chrom, coverage_plots_path):
@@ -136,3 +174,54 @@ def plots_layout_settings(fig, chrom, arguments, limit_x, limit_y):
         width=680,
         height=400,
        )
+
+def add_scatter_trace_phaseblocks(fig, phaseblocks_positions, haplotype_1_phaseblocks_values, haplotype_2_phaseblocks_values):
+    fig.add_trace(go.Scatter(
+        #legendgroup="group3",  # this can be any string, not just "group"
+        #legendgrouptitle_text="Phaseblocks",
+        x=phaseblocks_positions,
+        y=haplotype_1_phaseblocks_values,
+        name="HP-1",
+        text=phaseblocks_positions,
+        #yaxis="y5",
+        line = dict(shape = 'spline', color = 'gray', width= 1, dash = 'solid'),
+        mode='lines+markers',
+        marker={"size": 5},
+        opacity=0.5,
+        marker_color=['dimgray', 'darkgray', 'white']*len(phaseblocks_positions),
+        showlegend=True,
+        marker_symbol='diamond-wide',
+        hoverinfo = "x+name+y+text",
+        #legendgroup="group2",
+        #legendgrouptitle_text="Phaseblocks",
+    ))
+
+    fig.add_trace(go.Scatter(
+        #legendgroup="group3",
+        x=phaseblocks_positions,
+        y=haplotype_2_phaseblocks_values,
+        name="HP-2",
+        text=phaseblocks_positions,
+        #yaxis="y5",
+        line = dict(shape = 'spline', color = 'green', width= 1, dash = 'solid'),
+        mode='lines+markers',
+        marker={"size": 5},
+        opacity=0.5,
+        marker_color=['darkgreen', 'limegreen', 'white']*len(phaseblocks_positions),
+        showlegend=True,
+        marker_symbol='diamond-wide',
+        hoverinfo = "x+name+y+text",
+        #legendgroup="group2",
+    ))
+
+def slice_list_sums(l):
+    res, last = [[]], None
+    for x in sorted(l):
+        if last is None or abs(last - x) <= 1.5:
+            res[-1].append(x)
+        else:
+            res.append([x])
+        last = x
+    first = [res[0][0]]
+    print(res)
+    return first + [sum(sub_list) / len(sub_list) for sub_list in res[1:]]

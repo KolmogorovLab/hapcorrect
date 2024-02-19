@@ -4,6 +4,7 @@ import pysam
 import os
 
 from extras import get_contigs_list
+from process_bam import get_segments_coverage
 
 def get_chromosomes_bins(bam_file, bin_size, arguments):
     bed=[]
@@ -52,6 +53,13 @@ def chromosomes_sorter(label):
 
 def csv_df_chromosomes_sorter(path, names, sept='\t'):
     dataframe = pd.read_csv(path, sep=sept, names=names)
+    dataframe['chr'] = dataframe['chr'].astype(str)
+    #if not dataframe['chr'].iloc[0].startswith('chr'):
+    #    dataframe['chr'] = 'chr' + dataframe['chr'].astype(str)
+    dataframe.sort_values(by=['chr', names[1]], ascending=[True, True], inplace=True)
+    return dataframe.reindex(dataframe.chr.apply(chromosomes_sorter).sort_values(kind='mergesort').index)
+
+def df_chromosomes_sorter(dataframe, names, sept='\t'):
     dataframe['chr'] = dataframe['chr'].astype(str)
     #if not dataframe['chr'].iloc[0].startswith('chr'):
     #    dataframe['chr'] = 'chr' + dataframe['chr'].astype(str)
@@ -134,3 +142,26 @@ def mean_values(selected_list, start_index, end_index):
         return np.mean(result)
     else:
         return 0.0
+
+def infer_missing_phaseblocks(bam_file, chrom, ref_start_values_phasesets, ref_end_values_phasesets):
+
+    head, tail = os.path.split(bam_file)
+    bed = []
+    for i in range(len(ref_start_values_phasesets)-1):
+        if ref_start_values_phasesets[i +1] - ref_end_values_phasesets[i] > 1:
+            bed.append([tail, chrom, ref_end_values_phasesets[i] + 1, ref_start_values_phasesets[i+1] - 1])
+
+    return bed
+
+def update_phasesets_coverage_with_missing_phasesets(chroms, csv_df_phasesets, bam, coverage_histograms):
+    coverage = []
+    for index, chrom in enumerate(chroms):
+        csv_df_phaseset = csv_df_phasesets[csv_df_phasesets['chr'] == chrom]
+        ref_start_values_phasesets = csv_df_phaseset.start.values.tolist()
+        ref_end_values_phasesets = csv_df_phaseset.end.values.tolist()
+
+        missing_ps_segments = infer_missing_phaseblocks(bam, chrom, ref_start_values_phasesets, ref_end_values_phasesets)
+        missing_ps_coverage = get_segments_coverage(missing_ps_segments, coverage_histograms)
+        coverage.extend(missing_ps_coverage)
+
+    return coverage
