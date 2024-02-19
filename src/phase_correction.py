@@ -704,7 +704,7 @@ def contiguous_phaseblocks(haplotype_1_values_phasesets, haplotype_2_values_phas
 
 def flip_phaseblocks_contigous(hp1_values, contiguous_hp1_start, contiguous_hp1_end, hp2_values, contiguous_hp2_start, contiguous_hp2_end, ref_start_values, haplotype_1_values_phasesets,
                                haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values, haplotype_2_values):
-    THRESHOLD = 10
+    THRESHOLD = 8
     diff_hp1 = []
     max_value = []
     for index, value in enumerate(contiguous_hp1_start):
