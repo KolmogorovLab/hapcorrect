@@ -180,3 +180,16 @@ def infer_missing_phaseblocks(ref_start_values, ref_end_values, ref_start_values
         haplotype_2_values_phasesets = [d for a, b, c, d in sort_target]
 
     return ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets
+
+def is_phasesets_check_simple_heuristics(ref_start_values_phasesets, ref_end_values_phasesets):
+    ps_region_starts = []
+    ps_region_ends = []
+    for i, (start, end) in enumerate(zip(ref_start_values_phasesets, ref_end_values_phasesets)):
+        if end - start > 2000000:
+            ps_region_starts.append(start)
+            ps_region_ends.append(end)
+
+    if len(ps_region_starts) < 5:
+        return True
+    else:
+        return False

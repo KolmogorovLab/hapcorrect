@@ -83,14 +83,15 @@ def closest(lst):
 
 def phaseblock_flipping(chrom, arguments, is_simple_correction, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
                     haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
-    if is_simple_correction == False:
-        values_ps = []
-        for index, value in enumerate(ref_start_values_phasesets):
-            values_ps.append([ref_start_values_phasesets[index], ref_end_values_phasesets[index]])
 
-        #inside phaseblocks phaseswitch errors
-        scan_and_update_phaseswitches_inside_phaseblocks(values_ps, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
-                                                         haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+    values_ps = []
+    for index, value in enumerate(ref_start_values_phasesets):
+        values_ps.append([ref_start_values_phasesets[index], ref_end_values_phasesets[index]])
+
+    #inside phaseblocks phaseswitch errors
+    scan_and_update_phaseswitches_inside_phaseblocks(values_ps, haplotype_1_values, haplotype_2_values, ref_start_values, ref_end_values, \
+                                                     haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+    if is_simple_correction == False:
         diff = []
         values_ps = []
         #ref_start_values_phasesets.sort()

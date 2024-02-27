@@ -287,9 +287,9 @@ def add_scatter_trace_phaseblocks(fig, phaseblocks_positions, haplotype_1_phaseb
         #legendgroup="group2",
     ))
 
-def slice_list_sums(l):
+def slice_list_sums(input):
     res, last = [[]], None
-    for x in sorted(l):
+    for x in sorted(input):
         if last is None or abs(last - x) <= 1.5:
             res[-1].append(x)
         else:
@@ -297,4 +297,5 @@ def slice_list_sums(l):
         last = x
     first = [res[0][0]]
     print(res)
+
     return first + [sum(sub_list) / len(sub_list) for sub_list in res[1:]]

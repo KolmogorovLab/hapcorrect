@@ -17,7 +17,7 @@ from process_bam import get_all_reads_parallel, update_coverage_hist, get_segmen
 from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean
 from phase_correction import generate_phasesets_bins, phaseblock_flipping, phase_correction_centers, contiguous_phaseblocks, detect_centromeres, flip_phaseblocks_contigous
 from utils import get_chromosomes_bins, write_segments_coverage, csv_df_chromosomes_sorter, get_snps_frquncies_coverage_from_bam, \
-                    infer_missing_phaseblocks, df_chromosomes_sorter
+                    infer_missing_phaseblocks, df_chromosomes_sorter, is_phasesets_check_simple_heuristics
 from extras import get_contigs_list
 from plots import plot_coverage_data, change_point_detection, plot_coverage_data_after_correction
 from cpd import cpd_positions_means
@@ -239,44 +239,50 @@ def main():
             # change_point_detection(snps_haplotype2_mean, ref_start_values, ref_end_values, arguments, chrom,
             #                        html_graphs, 2, color='#2E8B57')
 
-            ##################################
-
-            is_simple_correction = False
-            snps_haplotype1_mean, snps_haplotype2_mean, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets = \
-                phaseblock_flipping(chrom, arguments, is_simple_correction, snps_haplotype1_mean, snps_haplotype2_mean, ref_start_values, ref_start_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
-
-            ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets = detect_centromeres(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean, ref_start_values, arguments['bin_size'])
-            ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets = infer_missing_phaseblocks(ref_start_values, ref_end_values, ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean, arguments['bin_size'])
-
-            haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2 = contiguous_phaseblocks(
-                haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
-
-            haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean = flip_phaseblocks_contigous(chrom, arguments,
-                haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1,
-                haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2,
-                ref_start_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets,
-                ref_start_values_phasesets, ref_end_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean)
-
-            plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_values, snps_haplotype1_mean,
-                               snps_haplotype2_mean, unphased_reads_values, haplotype_1_values_phasesets,
-                               haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets,
-                               "with_phase_correction_0")
-            ##################################
-            #cpd_haplotype1_mean, cpd_haplotype1_start, cpd_haplotype1_end,  cpd_haplotype2_mean, cpd_haplotype2_start, cpd_haplotype2_end = cpd_positions_means(snps_haplotype1_mean, snps_haplotype2_mean, arguments)
+            # cpd_haplotype1_mean, cpd_haplotype1_start, cpd_haplotype1_end,  cpd_haplotype2_mean, cpd_haplotype2_start, cpd_haplotype2_end = cpd_positions_means(snps_haplotype1_mean, snps_haplotype2_mean, arguments)
 
             # change_point_detection(snps_haplotype1_mean, ref_start_values, ref_end_values, arguments, chrom,
             #                        html_graphs, 1, color='#6A5ACD')
             # change_point_detection(snps_haplotype2_mean, ref_start_values, ref_end_values, arguments, chrom,
             #                        html_graphs, 2, color='#2E8B57')
 
-            #phase_correction_centers(arguments, cpd_haplotype1_mean, cpd_haplotype1_start, cpd_haplotype1_end,  cpd_haplotype2_mean, cpd_haplotype2_start, cpd_haplotype2_end, snps_haplotype1_mean, snps_haplotype2_mean)
-            #print(cpd_haplotype1_mean)
-            #print([(cpd_haplotype1_end - cpd_haplotype1_start) //50000 for cpd_haplotype1_start, cpd_haplotype1_end in zip(cpd_haplotype1_start, cpd_haplotype1_end)])
-            #print(cpd_haplotype2_mean)
-            #print([(cpd_haplotype2_end - cpd_haplotype2_start) // 50000 for cpd_haplotype2_start, cpd_haplotype2_end in
+            # phase_correction_centers(arguments, cpd_haplotype1_mean, cpd_haplotype1_start, cpd_haplotype1_end,  cpd_haplotype2_mean, cpd_haplotype2_start, cpd_haplotype2_end, snps_haplotype1_mean, snps_haplotype2_mean)
+            # print(cpd_haplotype1_mean)
+            # print([(cpd_haplotype1_end - cpd_haplotype1_start) //50000 for cpd_haplotype1_start, cpd_haplotype1_end in zip(cpd_haplotype1_start, cpd_haplotype1_end)])
+            # print(cpd_haplotype2_mean)
+            # print([(cpd_haplotype2_end - cpd_haplotype2_start) // 50000 for cpd_haplotype2_start, cpd_haplotype2_end in
             #       zip(cpd_haplotype2_start, cpd_haplotype2_end)])
 
-            #print(cpd_haplotype2_mean,cpd_haplotype2_end-cpd_haplotype2_start)
+            # print(cpd_haplotype2_mean,cpd_haplotype2_end-cpd_haplotype2_start)
+
+            ##################################
+            #phaseblocks flipping main algo
+            #is_phasesets_check_simple_heuristics(ref_start_values_phasesets, ref_end_values_phasesets)
+            snps_haplotype1_mean, snps_haplotype2_mean, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets = \
+                phaseblock_flipping(chrom, arguments, False, snps_haplotype1_mean, snps_haplotype2_mean, ref_start_values, ref_start_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+
+            # #detect centromeres
+            ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets = detect_centromeres(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean, ref_start_values, arguments['bin_size'])
+            #infer missing phaseblocks
+            ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets = infer_missing_phaseblocks(ref_start_values, ref_end_values, ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean, arguments['bin_size'])
+            #create more contiguous phaseblocks
+            haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2 = contiguous_phaseblocks(
+                haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
+
+            #flip phaseblocks based on more contiguous phaseblocks
+            haplotype_1_values_phasesets, haplotype_2_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean = flip_phaseblocks_contigous(chrom, arguments,
+                haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1,
+                haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2,
+                ref_start_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets,
+                ref_start_values_phasesets, ref_end_values_phasesets, snps_haplotype1_mean, snps_haplotype2_mean)
+
+            # #plot resultant
+            plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_values, snps_haplotype1_mean,
+                               snps_haplotype2_mean, unphased_reads_values, haplotype_1_values_phasesets,
+                               haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets,
+                               "with_phase_correction_0")
+            ##################################
+
             ##################################
             haplotype_1_values_phasesets_conti, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, haplotype_2_values_phasesets_conti, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2 = contiguous_phaseblocks(
                 haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets)
@@ -285,8 +291,8 @@ def main():
     html_graphs.write("</body></html>")
 
     # TODO call edit VCF functionality from process_vcf() here
-    csv_df_phase_change_segments = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_phase_change_segments.csv', ['chr', 'start', 'end'])
-    logging.info('VCF edit for phase change segments')
+    #csv_df_phase_change_segments = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_phase_change_segments.csv', ['chr', 'start', 'end'])
+    #logging.info('VCF edit for phase change segments')
 
 
 if __name__ == "__main__":
