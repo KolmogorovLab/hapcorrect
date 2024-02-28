@@ -14,7 +14,7 @@ from multiprocessing import Pool
 from collections import defaultdict
 
 from process_bam import get_all_reads_parallel, update_coverage_hist, get_segments_coverage, haplotype_update_all_bins_parallel, get_snps_frequencies
-from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean
+from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean, rephase_vcf
 from phase_correction import generate_phasesets_bins, phaseblock_flipping, phase_correction_centers, contiguous_phaseblocks, detect_centromeres, flip_phaseblocks_contigous
 from utils import get_chromosomes_bins, write_segments_coverage, csv_df_chromosomes_sorter, get_snps_frquncies_coverage_from_bam, \
                     infer_missing_phaseblocks, df_chromosomes_sorter, is_phasesets_check_simple_heuristics
@@ -291,8 +291,10 @@ def main():
     html_graphs.write("</body></html>")
 
     # TODO call edit VCF functionality from process_vcf() here
-    #csv_df_phase_change_segments = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_phase_change_segments.csv', ['chr', 'start', 'end'])
-    #logging.info('VCF edit for phase change segments')
+    csv_df_phase_change_segments = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_phase_change_segments.csv', ['chr', 'start', 'end'])
+    logging.info('VCF edit for phase change segments')
+    out_vcf = os.path.join(arguments['out_dir_plots'], 'rephased_vcf.vcf.gz')
+    rephase_vcf(csv_df_phase_change_segments, arguments["phased_vcf"],out_vcf)
 
 
 if __name__ == "__main__":
