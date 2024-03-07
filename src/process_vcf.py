@@ -7,6 +7,7 @@ import gzip
 import pandas as pd
 from utils import write_segments_coverage, csv_df_chromosomes_sorter
 from process_bam import process_bam_for_snps_freqs
+from smoothing import smoothing
 
 import csv
 import multiprocessing
@@ -131,6 +132,8 @@ def get_snps_frquncies_coverage(snps_df_sorted, chrom, ref_start_values, bin_siz
     snps_df = snps_df_sorted[snps_df_sorted['chr'] == chrom]
     snps_df['gt'].astype(str)
 
+    #snps_df = snps_df[(snps_df['qual'] > 15)]
+
     if snps_df.vaf.dtype == object:
         snps_df_vaf = [eval(i) for i in snps_df.vaf.str.split(',').str[0].values.tolist()]
     else:
@@ -202,6 +205,9 @@ def get_snps_frquncies_coverage(snps_df_sorted, chrom, ref_start_values, bin_siz
             snps_het_counts_updated.append(het_counts)
             snps_homo_counts_updated.append(homo_counts)
             ref_start_values_updated.append(start_values)
+
+    if snps_het_counts:
+        snps_het_counts_updated, snps_homo_counts_updated, _ = smoothing(snps_het_counts_updated, snps_homo_counts_updated, snps_homo_counts_updated, conv_window_size=45)
 
     for index, pos in enumerate(ref_start_values_updated):
         #if snps_het_counts[index] < 0.7 and snps_homo_counts[index] > 0.14:

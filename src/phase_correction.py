@@ -1,6 +1,7 @@
 import os
 import statistics
 import numpy as np
+import pandas as pd
 from utils import csv_df_chromosomes_sorter, write_segments_coverage
 from process_vcf import squash_regions
 from collections import  defaultdict, Counter
@@ -661,45 +662,50 @@ def phase_correction_centers(arguments, segs_hp1_state, segs_hp1_start, segs_hp1
 
     return haplotype_1_values, haplotype_2_values, processed
 
-def contiguous_phaseblocks(haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
-    THRESHOLD = 8
-    contiguous_hp1_start = []
-    contiguous_hp1_end = []
-    hp1_values = []
-    contiguous_hp1_start.append(ref_start_values_phasesets[0])
-    hp1_value = []
-    for i in range(len(ref_start_values_phasesets) - 1):
-        current_value_hp1 = haplotype_1_values_phasesets[i]
-        hp1_value.append(haplotype_1_values_phasesets[i])
-        if not haplotype_1_values_phasesets[i+1] - THRESHOLD < current_value_hp1 < haplotype_1_values_phasesets[i+1] + THRESHOLD :
-            contiguous_hp1_start.append(ref_start_values_phasesets[i+1])
-            contiguous_hp1_end.append(ref_start_values_phasesets[i+1]-1)
-            hp1_values.append(statistics.mean(hp1_value))
-            hp1_value.clear()
-    contiguous_hp1_end.append(ref_end_values_phasesets[-1])
-    if len(contiguous_hp1_start) > 2:
-        hp1_values.append(statistics.mean(haplotype_1_values_phasesets[ref_start_values_phasesets.index(contiguous_hp1_start[-2]):ref_start_values_phasesets.index(ref_start_values_phasesets[-1])]))
-    else:
-        hp1_values.append(0)
+def contiguous_phaseblocks(haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets, loh_starts, loh_ends):
+    # THRESHOLD = 8
+    # contiguous_hp1_start = []
+    # contiguous_hp1_end = []
+    # hp1_values = []
+    # contiguous_hp1_start.append(ref_start_values_phasesets[0])
+    # hp1_value = []
+    # for i in range(len(ref_start_values_phasesets) - 1):
+    #     current_value_hp1 = haplotype_1_values_phasesets[i]
+    #     hp1_value.append(haplotype_1_values_phasesets[i])
+    #     if not haplotype_1_values_phasesets[i+1] - THRESHOLD < current_value_hp1 < haplotype_1_values_phasesets[i+1] + THRESHOLD:
+    #         contiguous_hp1_start.append(ref_start_values_phasesets[i+1])
+    #         contiguous_hp1_end.append(ref_start_values_phasesets[i+1]-1)
+    #         hp1_values.append(statistics.mean(hp1_value))
+    #         hp1_value.clear()
+    # contiguous_hp1_end.append(ref_end_values_phasesets[-1])
+    # if len(contiguous_hp1_start) > 2:
+    #     hp1_values.append(statistics.mean(haplotype_1_values_phasesets[ref_start_values_phasesets.index(contiguous_hp1_start[-2]):ref_start_values_phasesets.index(ref_start_values_phasesets[-1])]))
+    # else:
+    #     hp1_values.append(0)
+    #
+    # contiguous_hp2_start = []
+    # contiguous_hp2_end = []
+    # hp2_values = []
+    # contiguous_hp2_start.append(ref_start_values_phasesets[0])
+    # hp2_value = []
+    # for i in range(len(ref_start_values_phasesets) - 1):
+    #     current_value_hp2 = haplotype_2_values_phasesets[i]
+    #     hp2_value.append(haplotype_2_values_phasesets[i])
+    #     if not haplotype_2_values_phasesets[i+1] - THRESHOLD < current_value_hp2 < haplotype_2_values_phasesets[i+1] + THRESHOLD :
+    #         contiguous_hp2_start.append(ref_start_values_phasesets[i+1])
+    #         contiguous_hp2_end.append(ref_start_values_phasesets[i+1]-1)
+    #         hp2_values.append(statistics.mean(hp2_value))
+    #         hp2_value.clear()
+    # contiguous_hp2_end.append(ref_end_values_phasesets[-1])
+    # if len(contiguous_hp2_start) > 2:
+    #     hp2_values.append(statistics.mean(haplotype_2_values_phasesets[ref_start_values_phasesets.index(contiguous_hp2_start[-2]):ref_start_values_phasesets.index(ref_start_values_phasesets[-1])]))
+    # else:
+    #     hp2_values.append(0)
 
-    contiguous_hp2_start = []
-    contiguous_hp2_end = []
-    hp2_values = []
-    contiguous_hp2_start.append(ref_start_values_phasesets[0])
-    hp2_value = []
-    for i in range(len(ref_start_values_phasesets) - 1):
-        current_value_hp2 = haplotype_2_values_phasesets[i]
-        hp2_value.append(haplotype_2_values_phasesets[i])
-        if not haplotype_2_values_phasesets[i+1] - THRESHOLD < current_value_hp2 < haplotype_2_values_phasesets[i+1] + THRESHOLD :
-            contiguous_hp2_start.append(ref_start_values_phasesets[i+1])
-            contiguous_hp2_end.append(ref_start_values_phasesets[i+1]-1)
-            hp2_values.append(statistics.mean(hp2_value))
-            hp2_value.clear()
-    contiguous_hp2_end.append(ref_end_values_phasesets[-1])
-    if len(contiguous_hp2_start) > 2:
-        hp2_values.append(statistics.mean(haplotype_2_values_phasesets[ref_start_values_phasesets.index(contiguous_hp2_start[-2]):ref_start_values_phasesets.index(ref_start_values_phasesets[-1])]))
-    else:
-        hp2_values.append(0)
+
+    from utils import merge_regions
+    contiguous_hp1_start, contiguous_hp1_end, hp1_values = merge_regions(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, loh_starts, loh_ends)
+    contiguous_hp2_start, contiguous_hp2_end, hp2_values = merge_regions(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_2_values_phasesets, loh_starts, loh_ends)
 
     return hp1_values, contiguous_hp1_start, contiguous_hp1_end, hp2_values, contiguous_hp2_start, contiguous_hp2_end
 
@@ -824,7 +830,61 @@ def detect_centromeres(ref_start_values_phasesets, ref_end_values_phasesets, hap
 
     return ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets
 
+def remove_overlaping_contiguous(chrom, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2):
+    overlaping_start_hp2 = []
+    overlaping_end_hp2 = []
+    overlaping_start_hp1 = []
+    overlaping_end_hp1 = []
+    for i, (start_hp1,end_hp1) in enumerate(zip(ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1)):
+        for j, (start_hp2, end_hp2) in enumerate(zip(ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2)):
+            if start_hp2 == 97490471 or start_hp1 == 97490471:
+                print('here')
+            if (start_hp2 >= start_hp1 and end_hp2 <= end_hp1) and not (start_hp2 == start_hp1 and end_hp2 == end_hp1) :
+                overlaping_start_hp2.append(start_hp2)
+                overlaping_end_hp2.append(end_hp2)
 
+    for i, (start_hp2,end_hp2) in enumerate(zip(ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2)):
+        for j, (start_hp1, end_hp1) in enumerate(zip(ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1)):
+            if start_hp2 == 97490471 or start_hp1 == 97490471:
+                print('here')
+            if (start_hp1 >= start_hp2 and end_hp1 <= end_hp2) and not (start_hp1 == start_hp2 and end_hp1 == end_hp2):
+                overlaping_start_hp1.append(start_hp1)
+                overlaping_end_hp1.append(end_hp1)
+
+    ref_start_values_phasesets_hp1 = [x for x in ref_start_values_phasesets_hp1 if x not in overlaping_start_hp1]
+    ref_start_values_phasesets_hp2 = [x for x in ref_start_values_phasesets_hp2 if x not in overlaping_start_hp2]
+
+    ref_end_values_phasesets_hp1 = [x for x in ref_end_values_phasesets_hp1 if x not in overlaping_end_hp1]
+    ref_end_values_phasesets_hp2 = [x for x in ref_end_values_phasesets_hp2 if x not in overlaping_end_hp2]
+
+    print(ref_start_values_phasesets_hp1)
+    print(ref_end_values_phasesets_hp1)
+
+    print(ref_start_values_phasesets_hp2)
+    print(ref_end_values_phasesets_hp2)
+    remove_overlaping_small_segments = []
+    for i, (start_hp1,end_hp1) in enumerate(zip(ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1)):
+        for j, (start_hp2, end_hp2) in enumerate(zip(ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2)):
+            if start_hp2 < start_hp1 < end_hp2 and  end_hp1 > end_hp2 :
+                if end_hp1 - start_hp1 > end_hp2 - start_hp2:
+                    remove_overlaping_small_segments.append(start_hp2)
+                else:
+                    remove_overlaping_small_segments.append(start_hp1)
+                #print("First: "+str(start_hp1)+':'+str(end_hp1) +' , '+ str(start_hp2)+':'+str(end_hp2))
+            if start_hp1 < start_hp2 < end_hp1 and  end_hp2 > end_hp1 :
+                if end_hp1 - start_hp1 > end_hp2 - start_hp2:
+                    remove_overlaping_small_segments.append(start_hp2)
+                else:
+                    remove_overlaping_small_segments.append(start_hp1)
+                #print("Second: "+str(start_hp1)+':'+ str(end_hp1) +' , '+ str(start_hp2)+':'+str(end_hp2))
+    final_start_positions = [j for j in sorted(ref_start_values_phasesets_hp1 + ref_start_values_phasesets_hp2) if j not in remove_overlaping_small_segments]
+
+    start_values_phasesets = np.unique(sorted(final_start_positions)).tolist()
+    print(start_values_phasesets)
+    chr_list = [chrom for ch in range(len(start_values_phasesets))]
+    df_phasesets_chr = pd.DataFrame(list(zip(chr_list, start_values_phasesets)), columns=['chr', 'start'])
+
+    return df_phasesets_chr
 def rephase_vcf(df, vcf_in, out_vcf):
     chr_list = list(set(df['chr']))
     start_pos = defaultdict(list)

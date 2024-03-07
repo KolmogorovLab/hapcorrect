@@ -38,7 +38,7 @@ def plot_coverage_data(html_graphs, arguments, chrom, ref_start_values, ref_end_
         "  <object data=\"" + chrom + '_' + sufix + '.html' + "\" width=\"700\" height=\"420\"></object>" + "\n")
 
 
-def plot_coverage_data_after_correction(html_graphs, arguments, chrom, ref_start_values, ref_end_values, haplotype_1_values, haplotype_2_values, unphased_reads_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2, sufix):
+def plot_coverage_data_after_correction(html_graphs, arguments, chrom, ref_start_values, ref_end_values, haplotype_1_values, haplotype_2_values, unphased_reads_values, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets_hp1, ref_end_values_phasesets_hp1, ref_start_values_phasesets_hp2, ref_end_values_phasesets_hp2, sufix, loh_region_starts, loh_region_ends):
     fig = go.Figure()
     add_scatter_trace_coverage(fig, ref_start_values, haplotype_1_values, name='HP-1', text=None, yaxis=None,
                                opacity=0.7, color='firebrick')
@@ -64,6 +64,10 @@ def plot_coverage_data_after_correction(html_graphs, arguments, chrom, ref_start
 
         add_scatter_trace_phaseblocks_seperate(fig, phaseblocks_positions_hp1, phaseblocks_positions_hp2, haplotype_1_phaseblocks_values,
                                       haplotype_2_phaseblocks_values)
+
+    if loh_region_starts:
+        for k, (start_loh, end_loh) in enumerate(zip(loh_region_starts, loh_region_ends)):
+            fig.add_vrect(x0=start_loh, x1=end_loh, fillcolor="lightgrey", opacity=0.5, layer="below", line_width=0, )
 
     plots_layout_settings(fig, chrom, arguments, ref_end_values[-1:][0], arguments['cut_threshold'])
 

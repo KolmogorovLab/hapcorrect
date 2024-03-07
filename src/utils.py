@@ -66,11 +66,20 @@ def df_chromosomes_sorter(dataframe, names, sept='\t'):
     dataframe.sort_values(by=['chr', names[1]], ascending=[True, True], inplace=True)
     return dataframe.reindex(dataframe.chr.apply(chromosomes_sorter).sort_values(kind='mergesort').index)
 
+def write_df_csv(df, file_name):
+    df.to_csv(file_name, sep='\t', index=False, header=False)
 def write_segments_coverage(coverage_segments, output):
     with open('data/' + output, 'a') as fp:
         for items in coverage_segments:
             if not items == None:
                 fp.write("%s\n" % items)
+
+def loh_regions_events(chrom, region_starts, region_ends):
+    dict = []
+    for i in range(len(region_starts)):
+        dict.append((chrom + '\t' + str(region_starts[i]) + '\t' + str(region_ends[i])))
+    #write_segments_coverage(dict, arguments['genome_name'] + '_loh_segments.bed')
+    return dict
 
 def seperate_dfs_coverage(arguments, df, haplotype_1_values_updated, haplotype_2_values_updated, unphased):
     if arguments['without_phasing']:
@@ -95,7 +104,7 @@ def get_snps_frquncies_coverage_from_bam(df, chrom):
 
     return haplotype_1_position, haplotype_1_coverage, haplotype_2_position, haplotype_2_coverage
 
-def detect_alter_loh_regions(arguments, event, chrom, ref_ends, haplotype_1_values, haplotype_2_values, unphased_reads_values, starts, ends):
+def detect_alter_loh_regions(arguments, event, chrom, ref_ends, haplotype_1_values, haplotype_2_values, unphased_reads_values, starts, ends, switch_hps):
     if ends and ends[-1] > ref_ends[-1]:
         ends[-1] = ref_ends[-1]
 
@@ -104,31 +113,28 @@ def detect_alter_loh_regions(arguments, event, chrom, ref_ends, haplotype_1_valu
     #print(starts)
     #print(ends)
     for i, (start,end) in enumerate(zip(starts,ends)):
-        if end - start > 2000000:
+        if end - start > 1000000:
             region_starts.append(start)
             region_ends.append(end)
 
     #print(region_starts)
     #print(region_ends)
-    if region_starts:
-        dict = []
-        for i in range(len(region_starts)):
-            dict.append((chrom + '\t' + str(region_starts[i]) + '\t' + str(region_ends[i]) + '\t' + event))
-        write_segments_coverage(dict, arguments['genome_name'] + '_events_segments.csv')
 
-    for j, (starts,ends) in enumerate(zip(region_starts, region_ends)):
-        if mean_values(haplotype_1_values, starts - 1, starts - 4) > mean_values(haplotype_2_values, starts - 1, starts - 4):
-            for i in range(starts//arguments['bin_size'],ends//arguments['bin_size']):
+    if not arguments['without_phasing'] and switch_hps:
+        for j, (starts,ends) in enumerate(zip(region_starts, region_ends)):
+            #TODO Discuss with Ayse, alternate approach on what HP should be selected for each region
+            #if mean_values(haplotype_1_values, starts - 1, starts - 4) > mean_values(haplotype_2_values, starts - 1, starts - 4):
+            for i in range(starts//50000,ends//50000):
                     haplotype_1_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
                     haplotype_2_values[i] = 0
                     unphased_reads_values[i] = 0
-        else:
-            for i in range(starts // arguments['bin_size'], ends // arguments['bin_size']):
-                haplotype_2_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
-                haplotype_1_values[i] = 0
-                unphased_reads_values[i] = 0
+            # else:
+            #     for i in range(starts // 50000, ends // 50000):
+            #         haplotype_2_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
+            #         haplotype_1_values[i] = 0
+            #         unphased_reads_values[i] = 0
 
-    return haplotype_1_values, haplotype_2_values, unphased_reads_values
+    return haplotype_1_values, haplotype_2_values, unphased_reads_values, region_starts, region_ends
 
 
 def mean_values(selected_list, start_index, end_index):
@@ -193,3 +199,38 @@ def is_phasesets_check_simple_heuristics(ref_start_values_phasesets, ref_end_val
         return True
     else:
         return False
+
+def loh_regions_phasesets(loh_region_starts, loh_region_ends, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
+    indices = []
+    for l, (loh_start, loh_end) in enumerate(zip(loh_region_starts, loh_region_ends)):
+        for k, (ps_start, ps_end) in enumerate(zip(ref_start_values_phasesets, ref_end_values_phasesets)):
+            if (ps_start >= loh_start and ps_end <= loh_end) or (loh_start < ps_end and ps_start < loh_end):
+                indices.append(k)
+
+    haplotype_1_values_phasesets = [j for i, j in enumerate(haplotype_1_values_phasesets) if i not in indices]
+    haplotype_2_values_phasesets = [j for i, j in enumerate(haplotype_2_values_phasesets) if i not in indices]
+    ref_start_values_phasesets = [j for i, j in enumerate(ref_start_values_phasesets) if i not in indices]
+    ref_end_values_phasesets = [j for i, j in enumerate(ref_end_values_phasesets) if i not in indices]
+
+    return haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets
+
+def overlap_check(start, end, starts, ends):
+  for i in range(len(starts)):
+    if (start < ends[i] and end > starts[i]) or (start <= starts[i] and end >= ends[i]):
+      return True
+  return False
+def merge_regions(starts, ends, values, loh_starts, loh_ends, threshold=3):
+    merged_starts, merged_ends, merged_values = [], [], []
+    i = 0
+    while i < len(starts):
+        start, end, value = starts[i], ends[i], values[i]
+        j = i + 1
+        while j < len(starts) and abs(value - values[j]) <= threshold:
+            end = max(end, ends[j])
+            j += 1
+        if not overlap_check(start, end, loh_starts, loh_ends):
+            merged_starts.append(start)
+            merged_ends.append(end)
+            merged_values.append(sum(values[i:j]) / (j - i))
+        i = j
+    return merged_starts, merged_ends, merged_values
