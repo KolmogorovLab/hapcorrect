@@ -4,7 +4,11 @@ import statistics
 import logging
 import os
 import gzip
+import pysam
+import bisect
 import pandas as pd
+from collections import  defaultdict, Counter
+
 from utils import write_segments_coverage, csv_df_chromosomes_sorter
 from process_bam import process_bam_for_snps_freqs
 from smoothing import smoothing
@@ -499,6 +503,27 @@ def compute_acgt_frequency(pileup, snps_frequency): #https://www.biostars.org/p/
         writer = csv.writer(f)
         writer.writerows(base_counts)
 
+def rephase_vcf(df, vcf_in, out_vcf):
+    chr_list = list(set(df['chr']))
+    start_pos = defaultdict(list)
+    end_pos = defaultdict(list)
+    for seq in chr_list:
+        start_pos[seq] = sorted([key for key, val in Counter(df.loc[df['chr'] == seq, 'start']).items() if val%2 == 1])
+        end_pos[seq] = sorted([key for key, val in Counter(df.loc[df['chr'] == seq, 'end']).items() if val%2 == 1])
+    vcf_in=pysam.VariantFile(vcf_in,"r")
+    vcf_out = pysam.VariantFile(out_vcf, 'w', header=vcf_in.header)
+    for var in vcf_in:
+        sample = var.samples.keys()[0]
+        if var.samples[sample].phased:
+            strt = bisect.bisect_right(start_pos[var.chrom], var.pos)
+            end = bisect.bisect_right(end_pos[var.chrom], var.pos)
+            if strt == end + 1:
+                (a,b) = var.samples[sample]['GT']
+                new_gt = (abs(a-1), abs(b-1))
+                var.samples[sample]['GT'] = new_gt
+                var.samples[sample].phased = True
+        vcf_out.write(var)
+    vcf_out.close()
 def index_vcf(out_vcf):
     bcf_cmd = ['bcftols', 'index', out_vcf]
     bcf_1 = subprocess.Popen(bcf_cmd, stdout=subprocess.PIPE)

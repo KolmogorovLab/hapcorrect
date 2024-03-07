@@ -4,9 +4,7 @@ import numpy as np
 import pandas as pd
 from utils import csv_df_chromosomes_sorter, write_segments_coverage
 from process_vcf import squash_regions
-from collections import  defaultdict, Counter
-import pysam
-import bisect
+
 
 def generate_phasesets_bins(bam, path, bin_size, arguments):
     return get_phasesets_bins(bam, path, bin_size, arguments)
@@ -885,24 +883,3 @@ def remove_overlaping_contiguous(chrom, ref_start_values_phasesets_hp1, ref_end_
     df_phasesets_chr = pd.DataFrame(list(zip(chr_list, start_values_phasesets)), columns=['chr', 'start'])
 
     return df_phasesets_chr
-def rephase_vcf(df, vcf_in, out_vcf):
-    chr_list = list(set(df['chr']))
-    start_pos = defaultdict(list)
-    end_pos = defaultdict(list)
-    for seq in chr_list:
-        start_pos[seq] = sorted([key for key, val in Counter(df.loc[df['chr'] == seq, 'start']).items() if val%2 == 1])
-        end_pos[seq] = sorted([key for key, val in Counter(df.loc[df['chr'] == seq, 'end']).items() if val%2 == 1])
-    vcf_in=pysam.VariantFile(vcf_in,"r")
-    vcf_out = pysam.VariantFile(out_vcf, 'w', header=vcf_in.header)
-    for var in vcf_in:
-        sample = var.samples.keys()[0]
-        if var.samples[sample].phased:
-            strt = bisect.bisect_right(start_pos[var.chrom], var.pos)
-            end = bisect.bisect_right(end_pos[var.chrom], var.pos)
-            if strt == end + 1:
-                (a,b) = var.samples[sample]['GT']
-                new_gt = (abs(a-1), abs(b-1))
-                var.samples[sample]['GT'] = new_gt
-                var.samples[sample].phased = True
-        vcf_out.write(var)
-    vcf_out.close()
