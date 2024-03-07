@@ -13,8 +13,8 @@ import pandas as pd
 from multiprocessing import Pool
 from collections import defaultdict
 
-from process_bam import get_all_reads_parallel, update_coverage_hist, get_segments_coverage, haplotype_update_all_bins_parallel, get_snps_frequencies
-from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean, get_snps_frquncies_coverage, vcf_parse_to_csv_for_snps
+from process_bam import get_all_reads_parallel, update_coverage_hist, get_segments_coverage, haplotype_update_all_bins_parallel, get_snps_frequencies, tumor_bam_haplotag
+from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean, get_snps_frquncies_coverage, vcf_parse_to_csv_for_snps, index_vcf
 from phase_correction import generate_phasesets_bins, phaseblock_flipping, phase_correction_centers, contiguous_phaseblocks, detect_centromeres, flip_phaseblocks_contigous, rephase_vcf, remove_overlaping_contiguous
 from utils import get_chromosomes_bins, write_segments_coverage, csv_df_chromosomes_sorter, get_snps_frquncies_coverage_from_bam, \
                     infer_missing_phaseblocks, df_chromosomes_sorter, is_phasesets_check_simple_heuristics, write_df_csv, loh_regions_events
@@ -354,9 +354,13 @@ def main():
     csv_df_loh_regions = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_loh_segments.csv', ['chr', 'start', 'end'])
 
     logging.info('VCF edit for phase change segments')
-    out_vcf = os.path.join(arguments['out_dir_plots'], 'rephased_vcf.vcf.gz')
-    rephase_vcf(csv_df_phase_change_segments, arguments["phased_vcf"],out_vcf)
+    out_vcf = os.path.join(arguments['out_dir_plots'], arguments['genome_name']+'.rephased.vcf.gz')
+    rephase_vcf(csv_df_phase_change_segments, arguments["phased_vcf"], out_vcf)
+    index_vcf(out_vcf)
+    #re-haplotag tumor BAM
+    tumor_bam_haplotag(arguments, out_vcf)
 
+    return 0
 
 if __name__ == "__main__":
     main()

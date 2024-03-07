@@ -296,6 +296,15 @@ def compute_snp_frequency(bam, region):
 
     return (contig+'\t'+str(start)+'\t'+ref+'\t'+alt+'\t'+str(ref_value_new)+'\t'+str(alt_value_new)+'\t'+str(hp))
 
+def tumor_bam_haplotag(arguments, out_vcf):
+    basefile = pathlib.Path(arguments['target_bam'][0]).stem
+    output_bam = f"{os.path.join('data', basefile + arguments['genome_name'] + '.rehaplotagged.bam')}"
+    whatshap_cmd = ['whatshap', 'haplotag', '--reference', arguments['reference'], out_vcf, arguments['target_bam'][0], '- o', output_bam, '--ignore-read-groups', '--tag-supplementary', '--skip-missing-contigs', '--output-threads', str(arguments['threads'])]
+
+    wh_1 = subprocess.Popen(whatshap_cmd, stdout=subprocess.PIPE)
+    wh_1.wait()
+    if wh_1.returncode != 0:
+        raise ValueError('whatshap haplotag subprocess returned nonzero value: {}'.format(wh_1.returncode))
 def process_bam_for_snps_freqs(arguments, thread_pool):
     basefile = pathlib.Path(arguments['target_bam'][0]).stem
     output_bam = f"{os.path.join('data', basefile + '_reduced.bam')}"

@@ -499,5 +499,9 @@ def compute_acgt_frequency(pileup, snps_frequency): #https://www.biostars.org/p/
         writer = csv.writer(f)
         writer.writerows(base_counts)
 
-
-
+def index_vcf(out_vcf):
+    bcf_cmd = ['bcftols', 'index', out_vcf]
+    bcf_1 = subprocess.Popen(bcf_cmd, stdout=subprocess.PIPE)
+    bcf_1.wait()
+    if bcf_1.returncode != 0:
+        raise ValueError('bcftols index subprocess returned nonzero value: {}'.format(bcf_1.returncode))
