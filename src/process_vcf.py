@@ -380,7 +380,7 @@ def vcf_parse_to_csv_for_het_phased_snps_phasesets(input_vcf):
     return output_csv
 
 def get_snp_frequencies_segments(arguments, target_bam, thread_pool):
-    basefile = pathlib.Path(arguments['phased_vcf']).stem
+    basefile = pathlib.Path(arguments['normal_phased_vcf']).stem
     output_csv = basefile + '_het_snps.csv'
     output_csv = f"{os.path.join('data', output_csv)}"
 
@@ -392,17 +392,17 @@ def get_snp_frequencies_segments(arguments, target_bam, thread_pool):
 
     # logging.info('bcftools -> Filtering out hetrozygous and phased SNPs and generating a new VCF')
     # # Filter out het, phased SNPs
-    # cmd = ['bcftools', 'view', '--threads', '$(nproc)',  '--phased', '-g', 'het', '--types', 'snps', arguments['phased_vcf'], '-Oz', '-o', arguments['phased_vcf']]
+    # cmd = ['bcftools', 'view', '--threads', '$(nproc)',  '--phased', '-g', 'het', '--types', 'snps', arguments['normal_phased_vcf'], '-Oz', '-o', arguments['normal_phased_vcf']]
     # process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     # process.wait()
 
     logging.info('bcftools -> Query for het SNPs and creating a %s CSV file', output_csv)
     # bcftools query for phasesets and GT,DP,VAF
-    cmd = ['bcftools', 'query', '-i', 'GT="het"', '-f',  '%CHROM\t%POS\t%REF\t%ALT\t[%GT]\n', arguments['phased_vcf'], '-o', output_csv] #
+    cmd = ['bcftools', 'query', '-i', 'GT="het"', '-f',  '%CHROM\t%POS\t%REF\t%ALT\t[%GT]\n', arguments['normal_phased_vcf'], '-o', output_csv] #
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     process.wait()
 
-    cmd = ['bcftools', 'query', '-i', 'GT="het"', '-f',  '%CHROM\t%POS\n', arguments['phased_vcf'], '-o', output_bed] #
+    cmd = ['bcftools', 'query', '-i', 'GT="het"', '-f',  '%CHROM\t%POS\n', arguments['normal_phased_vcf'], '-o', output_bed] #
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     process.wait()
 
@@ -417,7 +417,7 @@ def get_snp_frequencies_segments(arguments, target_bam, thread_pool):
 
     #output_pileups = bam_pileups_snps(output_bed, target_bam, arguments)
     if arguments['dryrun']:
-        output_pileups = '/home/rezkuh/gits/data/'+arguments['genome_name']+'/'+arguments['genome_name']+'_SNPs.csv'
+        output_pileups = arguments['dryrun_path'] + arguments['genome_name']+'/'+arguments['genome_name']+'_SNPs.csv'
     else:
         output_pileups = process_bam_for_snps_freqs(arguments, thread_pool)  # TODO Updated
 

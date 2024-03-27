@@ -22,10 +22,13 @@ def smooth_triangle(data, degree):
         point=data[i:i + len(triangle)] * triangle
         smoothed.append(np.sum(point)/np.sum(triangle))
     # Handle boundaries
-    smoothed=[smoothed[0]]*int(degree + degree/2) + smoothed
-    while len(smoothed) < len(data):
-        smoothed.append(smoothed[-1])
-    return smoothed
+    if len(data) > degree:
+        smoothed=[smoothed[0]]*int(degree + degree/2) + smoothed
+        while len(smoothed) < len(data):
+            smoothed.append(smoothed[-1])
+        return smoothed
+    else:
+        return data
 
 def smooth_gaussian(list, degree):
     window = degree*2-1

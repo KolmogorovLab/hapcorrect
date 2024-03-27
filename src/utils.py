@@ -1,3 +1,5 @@
+import statistics
+
 import numpy as np
 import pandas as pd
 import pysam
@@ -123,16 +125,16 @@ def detect_alter_loh_regions(arguments, event, chrom, ref_ends, haplotype_1_valu
     if not arguments['without_phasing'] and switch_hps:
         for j, (starts,ends) in enumerate(zip(region_starts, region_ends)):
             #TODO Discuss with Ayse, alternate approach on what HP should be selected for each region
-            #if mean_values(haplotype_1_values, starts - 1, starts - 4) > mean_values(haplotype_2_values, starts - 1, starts - 4):
-            for i in range(starts//50000,ends//50000):
-                    haplotype_1_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
-                    haplotype_2_values[i] = 0
+            if mean_values(haplotype_1_values, starts//arguments['bin_size'] - 4, starts//arguments['bin_size'] - 1) > mean_values(haplotype_2_values, starts//arguments['bin_size'] - 4, starts//arguments['bin_size'] - 1):
+                for i in range(starts//arguments['bin_size'],ends//arguments['bin_size']):
+                        haplotype_1_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
+                        haplotype_2_values[i] = 0
+                        unphased_reads_values[i] = 0
+            else:
+                for i in range(starts // arguments['bin_size'], ends // arguments['bin_size']):
+                    haplotype_2_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
+                    haplotype_1_values[i] = 0
                     unphased_reads_values[i] = 0
-            # else:
-            #     for i in range(starts // 50000, ends // 50000):
-            #         haplotype_2_values[i] = haplotype_1_values[i] + haplotype_2_values[i] + unphased_reads_values[i]
-            #         haplotype_1_values[i] = 0
-            #         unphased_reads_values[i] = 0
 
     return haplotype_1_values, haplotype_2_values, unphased_reads_values, region_starts, region_ends
 
@@ -145,7 +147,7 @@ def mean_values(selected_list, start_index, end_index):
         except IndexError:
             break
     if result:
-        return np.mean(result)
+        return np.median(result)
     else:
         return 0.0
 
@@ -200,7 +202,7 @@ def is_phasesets_check_simple_heuristics(ref_start_values_phasesets, ref_end_val
     else:
         return False
 
-def loh_regions_phasesets(loh_region_starts, loh_region_ends, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets):
+def loh_regions_phasesets(haplotype_1_values, haplotype_2_values, loh_region_starts, loh_region_ends, haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets, arguments):
     indices = []
     for l, (loh_start, loh_end) in enumerate(zip(loh_region_starts, loh_region_ends)):
         for k, (ps_start, ps_end) in enumerate(zip(ref_start_values_phasesets, ref_end_values_phasesets)):
@@ -212,6 +214,21 @@ def loh_regions_phasesets(loh_region_starts, loh_region_ends, haplotype_1_values
     ref_start_values_phasesets = [j for i, j in enumerate(ref_start_values_phasesets) if i not in indices]
     ref_end_values_phasesets = [j for i, j in enumerate(ref_end_values_phasesets) if i not in indices]
 
+    for m, (loh_start, loh_end) in enumerate(zip(loh_region_starts, loh_region_ends)):
+        haplotype_1_values_phasesets.append(mean_values(haplotype_1_values, loh_start//arguments['bin_size'], loh_end//arguments['bin_size']))
+        haplotype_2_values_phasesets.append(mean_values(haplotype_2_values, loh_start//arguments['bin_size'], loh_end//arguments['bin_size']))
+        ref_start_values_phasesets.append(loh_start)
+        ref_end_values_phasesets.append(loh_end)
+
+    sort_function = lambda x: x[0]
+    sort_target = list(zip(ref_start_values_phasesets, ref_end_values_phasesets, haplotype_1_values_phasesets, haplotype_2_values_phasesets))
+    sort_target.sort(key=sort_function)
+
+    ref_start_values_phasesets = [a for a, b, c, d in sort_target]
+    ref_end_values_phasesets = [b for a, b, c, d in sort_target]
+    haplotype_1_values_phasesets = [c for a, b, c, d in sort_target]
+    haplotype_2_values_phasesets = [d for a, b, c, d in sort_target]
+
     return haplotype_1_values_phasesets, haplotype_2_values_phasesets, ref_start_values_phasesets, ref_end_values_phasesets
 
 def overlap_check(start, end, starts, ends):
@@ -219,18 +236,26 @@ def overlap_check(start, end, starts, ends):
     if (start < ends[i] and end > starts[i]) or (start <= starts[i] and end >= ends[i]):
       return True
   return False
-def merge_regions(starts, ends, values, loh_starts, loh_ends, threshold=3):
+
+def merge_regions_alt(starts, ends, values, values_next, loh_starts, loh_ends, threshold=3):
     merged_starts, merged_ends, merged_values = [], [], []
+    for i in range(len(starts)-1):
+        while abs(values[i+1] - values[i]) <= threshold and abs(values[i] - values_next[i]) >= threshold:
+            if not overlap_check(starts[i], ends[i], loh_starts, loh_ends):
+                print('here')
+def merge_regions(starts, ends, values, values_next, loh_starts, loh_ends, threshold=3):
+    merged_starts, merged_ends, merged_values, merged_values_2 = [], [], [], []
     i = 0
     while i < len(starts):
         start, end, value = starts[i], ends[i], values[i]
         j = i + 1
-        while j < len(starts) and abs(value - values[j]) <= threshold:
+        while j < len(starts) and abs(value - values[j]) <= threshold and abs(value - values_next[i]) >= threshold:
             end = max(end, ends[j])
             j += 1
         if not overlap_check(start, end, loh_starts, loh_ends):
             merged_starts.append(start)
             merged_ends.append(end)
             merged_values.append(sum(values[i:j]) / (j - i))
+            merged_values_2.append(sum(values_next[i:j]) / (j - i))
         i = j
-    return merged_starts, merged_ends, merged_values
+    return merged_starts, merged_ends, merged_values, merged_values_2
