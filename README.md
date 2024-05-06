@@ -6,10 +6,10 @@ hapcorrect takes long-read alignment and phased heterozygous variants as input, 
 
 
 #### Phasing errors:
-<img width="1373" alt="plots_example" src="images/1.png">
+<img width="1373" alt="plots_example" src="src/images/1.png">
 
 #### Phasing errors correction:
-<img width="1373" alt="plots_example" src="images/2.png">
+<img width="1373" alt="plots_example" src="src/images/2.png">
 
 ## Usage 
 
