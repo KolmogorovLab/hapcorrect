@@ -104,6 +104,8 @@ def main():
 
     parser.add_argument('--enable-debug',  dest="enable_debug", required=False,
                         default=False, help="Enabling debug")
+    parser.add_argument('--enable-simple-heuristics', dest="enable_simple_heuristics", required=False,
+                        default=False, help="Enabling simple heuristics")
 
     parser.add_argument('--unphased-reads-coverage-enable',  dest="unphased_reads_coverage_enable", required=False,
                         default=False, help="Enabling unphased reads coverage output in plots")
@@ -159,6 +161,7 @@ def main():
         "dryrun_path": args.dryrun_path,
         "min_aligned_length": args.min_aligned_length,
         "rephase_normal_vcf": args.rephase_normal_vcf,
+        "enable_simple_heuristics": args.enable_simple_heuristics,
         "rephase_tumor_vcf": args.rephase_tumor_vcf,
         "rehaplotag_tumor_bam": args.rehaplotag_tumor_bam,
     }
@@ -321,6 +324,8 @@ def main():
             #is_phasesets_check_simple_heuristics(ref_start_values_phasesets, ref_end_values_phasesets)
             if len(ref_start_values_phasesets) >= 1:
                 is_simple_heuristics = False
+            if arguments['enable_simple_heuristics']:
+                is_simple_heuristics = True
 
             if is_simple_heuristics:
                 # #plot resultant
