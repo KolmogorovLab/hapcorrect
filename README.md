@@ -15,7 +15,7 @@ hapcorrect takes long-read alignment and phased heterozygous variants as input, 
 
 ### Tumor-Normal Mode (requires normal phased VCF)
 ```
-python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor.bam>  --tumor-vcf <data.tumor.vcf.gz>  --normal-phased-vcf <data.normal_phased.vcf.gz>  --unphased-reads-coverage-enable True --phaseblock-flipping-enable True  --genome-name <cellline/dataset name> --cut-threshold <150> --out-dir-plots <genome_abc_output>
+python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor.bam>  --tumor-vcf <data.tumor.vcf.gz>  --normal-phased-vcf <data.normal_phased.vcf.gz>  --genome-name <cellline/dataset name> --cut-threshold <150> --out-dir-plots <genome_abc_output>
 ```
 ## Optional parameters
 * `--rephase-normal-vcf` Set true to rephase normal VCF with hapcorrect phasing correction (default: disabled)
@@ -24,7 +24,7 @@ python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor.bam>
 
 ### Tumor-only (requires tumor phased/haplotagged BAM and phased VCF)
 ```
-python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor_haplotagged.bam>  --tumor-vcf <data.tumor_phased.vcf.gz>  --unphased-reads-coverage-enable True --phaseblock-flipping-enable True  --genome-name <cellline/dataset name> --cut-threshold <150> --out-dir-plots <genome_abc_output>
+python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor_haplotagged.bam>  --tumor-vcf <data.tumor_phased.vcf.gz>  --genome-name <cellline/dataset name> --cut-threshold <150> --out-dir-plots <genome_abc_output>
 ```
 ## Optional parameters
 * `--rephase-tumor-vcf` Set true to rephase tumor VCF with hapcorrect phasing correction (default: disabled)
