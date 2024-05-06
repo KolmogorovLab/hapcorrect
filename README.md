@@ -30,4 +30,4 @@ python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor_hapl
 * `--rephase-tumor-vcf` Set true to rephase tumor VCF with hapcorrect phasing correction (default: disabled)
 
 ## Note:
-In some cases, phaseblocks are not good enough for `hapcorrect` to correct phase-switch errors (too small phaseblocks), in that scenrio, user can use `enable-simple-heuristics` parameter to apply simple heuristics which will assign higher coverage bins values to HP-1 and lower bins coverage values to HP-2.  
+In some cases, phaseblocks are not good enough for `hapcorrect` to correct phase-switch errors (too small phaseblocks), in that scenario, user can set `enable-simple-heuristics` parameter to apply simple heuristics which will assign higher coverage bins values to HP-1 and lower bins coverage values to HP-2.  
