@@ -14,7 +14,7 @@ from multiprocessing import Pool
 from collections import defaultdict
 
 from process_bam import get_all_reads_parallel, update_coverage_hist, get_segments_coverage, haplotype_update_all_bins_parallel, get_snps_frequencies, tumor_bam_haplotag
-from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean, get_snps_frquncies_coverage, vcf_parse_to_csv_for_snps, index_vcf, rephase_vcf
+from process_vcf import vcf_parse_to_csv_for_het_phased_snps_phasesets, get_snp_frequencies_segments, snps_frequencies_chrom_mean, get_snps_frquncies_coverage, vcf_parse_to_csv_for_snps, index_vcf, rephase_vcf, get_phasingblocks
 from phase_correction import generate_phasesets_bins, phaseblock_flipping, phase_correction_centers, contiguous_phaseblocks, detect_centromeres, flip_phaseblocks_contigous, remove_overlaping_contiguous
 from utils import get_chromosomes_bins, write_segments_coverage, csv_df_chromosomes_sorter, get_snps_frquncies_coverage_from_bam, \
                     infer_missing_phaseblocks, df_chromosomes_sorter, is_phasesets_check_simple_heuristics, write_df_csv, loh_regions_events
@@ -106,7 +106,7 @@ def main():
                         default=False, help="Enabling unphased reads coverage output in plots")
 
     parser.add_argument('--phaseblock-flipping-enable',  dest="phaseblock_flipping_enable", required=False,
-                        default=False, help="Enabling phaseblock flipping in coverage plots")
+                        default=True, help="Enabling phaseblock flipping in coverage plots")
     parser.add_argument('--phaseblocks-enable',  dest="phaseblocks_enable", required=False,
                         default=True, help="Enabling phaseblocks display in coverage plots")
     parser.add_argument('--het-phased-snps-freq-enable',  dest="het_phased_snps_freq_enable", required=False,
@@ -355,13 +355,23 @@ def main():
     csv_df_phase_change_segments = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_phase_change_segments.csv', ['chr', 'start', 'end'])
     csv_df_phasesets_segments = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_phasesets.csv', ['chr', 'start'])
     csv_df_loh_regions = csv_df_chromosomes_sorter('data/' + arguments['genome_name'] + '_loh_segments.csv', ['chr', 'start', 'end'])
+    get_phasingblocks(arguments["normal_phased_vcf"])
 
     if arguments["rephase_normal_vcf"]:
         logging.info('VCF edit for phase change segments')
         out_vcf = os.path.join(arguments['out_dir_plots'], arguments['genome_name']+'.rephased.vcf.gz')
-        rephase_vcf(csv_df_phase_change_segments, arguments["normal_phased_vcf"], out_vcf)
+        rephase_vcf(csv_df_phase_change_segments, csv_df_phasesets_segments, arguments["normal_phased_vcf"], out_vcf)
         index_vcf(out_vcf)
-    if arguments["rephase_normal_vcf"] and arguments["rehaplotag_tumor_bam"]:
+        get_phasingblocks(out_vcf)
+
+    elif arguments["rephase_tumor_vcf"]:
+        logging.info('VCF edit for phase change segments')
+        out_vcf = os.path.join(arguments['out_dir_plots'], arguments['genome_name']+'.rephased.vcf.gz')
+        rephase_vcf(csv_df_phase_change_segments, csv_df_phasesets_segments, arguments["tumor_vcf"], out_vcf)
+        index_vcf(out_vcf)
+        get_phasingblocks(out_vcf)
+
+    if arguments["rehaplotag_tumor_bam"]:
         logging.info('Rehaplotagging tumor BAM')
         tumor_bam_haplotag(arguments, out_vcf)
 
@@ -370,6 +380,12 @@ def main():
 if __name__ == "__main__":
     main()
 
-#--dryrun True --dryrun-path /home/rezkuh/gits/data/ --threads 1 --reference /home/rezkuh/GenData/reference/GRCh38_no_alt_analysis_set.fasta  --target-bam /home/rezkuh/GenData/COLO829/colo829_tumor_grch38_md_chr7:78318498-78486891_haplotagged.bam  --tumor-vcf /home/rezkuh/gits/data/HG008_HiFi/HG008_HiFi.vcf.gz  --phased-vcf /home/rezkuh/gits/data/HG008_HiFi/HG008BL_HiFi.vcf.gz --genome-name HG008_HiFi --out-dir-plots HG008_HiFi --cut-threshold 150
-#--dryrun True --dryrun-path /home/rezkuh/gits/data/ --threads 1 --reference /home/rezkuh/GenData/reference/GRCh38_no_alt_analysis_set.fasta  --target-bam /home/rezkuh/GenData/COLO829/colo829_tumor_grch38_md_chr7:78318498-78486891_haplotagged.bam   --phased-vcf /home/rezkuh/gits/data/1437/1437BL.vcf.gz --genome-name 1437 --out-dir-plots 1437 --cut-threshold 150
+#Tumor-normal (tumor/normal VCFs)
+#--dryrun True --dryrun-path /home/rezkuh/gits/data/ --threads 1 --reference /home/rezkuh/GenData/reference/GRCh38_no_alt_analysis_set.fasta  --target-bam /home/rezkuh/GenData/COLO829/colo829_tumor_grch38_md_chr7:78318498-78486891_haplotagged.bam  --tumor-vcf /home/rezkuh/gits/data/HG008_HiFi/HG008_HiFi.vcf.gz  --normal_phased-vcf /home/rezkuh/gits/data/HG008_HiFi/HG008BL_HiFi.vcf.gz --genome-name HG008_HiFi --out-dir-plots HG008_HiFi --cut-threshold 150
+#--dryrun True --dryrun-path /home/rezkuh/gits/data/ --threads 1 --reference /home/rezkuh/GenData/reference/GRCh38_no_alt_analysis_set.fasta  --target-bam /home/rezkuh/GenData/COLO829/colo829_tumor_grch38_md_chr7:78318498-78486891_haplotagged.bam  --tumor-vcf /home/rezkuh/gits/data/1395/1395.vcf.gz  --normal-phased-vcf /home/rezkuh/gits/data/1395/1395BL.vcf.gz --genome-name 1395 --out-dir-plots 1395 --cut-threshold 150 --rephase-normal-vcf True
+
+#Tumor-normal (normal VCF)
+#--dryrun True --dryrun-path /home/rezkuh/gits/data/ --threads 1 --reference /home/rezkuh/GenData/reference/GRCh38_no_alt_analysis_set.fasta  --target-bam /home/rezkuh/GenData/COLO829/colo829_tumor_grch38_md_chr7:78318498-78486891_haplotagged.bam   --normal_phased-vcf /home/rezkuh/gits/data/1437/1437BL.vcf.gz --genome-name 1437 --out-dir-plots 1437 --cut-threshold 150
+
+#Tumor only
 #--dryrun True --dryrun-path /home/rezkuh/gits/data/ --threads 1 --reference /home/rezkuh/GenData/reference/GRCh38_no_alt_analysis_set.fasta  --target-bam /home/rezkuh/GenData/COLO829/colo829_tumor_grch38_md_chr7:78318498-78486891_haplotagged.bam   --tumor-vcf /home/rezkuh/gits/data/colo357_R10/colo357.vcf.gz --genome-name colo357 --out-dir-plots colo357 --cut-threshold 150

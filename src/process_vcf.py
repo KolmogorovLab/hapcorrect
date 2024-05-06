@@ -503,18 +503,23 @@ def compute_acgt_frequency(pileup, snps_frequency): #https://www.biostars.org/p/
         writer = csv.writer(f)
         writer.writerows(base_counts)
 
-def rephase_vcf(df, vcf_in, out_vcf):
+def rephase_vcf(df, id_df, vcf_in, out_vcf):
     chr_list = list(set(df['chr']))
     start_pos = defaultdict(list)
     end_pos = defaultdict(list)
+    idls = defaultdict(list)
     for seq in chr_list:
         start_pos[seq] = sorted([key for key, val in Counter(df.loc[df['chr'] == seq, 'start']).items() if val%2 == 1])
         end_pos[seq] = sorted([key for key, val in Counter(df.loc[df['chr'] == seq, 'end']).items() if val%2 == 1])
+        idls[seq] = sorted(id_df.loc[id_df['chr'] == seq, 'start'])
     vcf_in=pysam.VariantFile(vcf_in,"r")
     vcf_out = pysam.VariantFile(out_vcf, 'w', header=vcf_in.header)
     for var in vcf_in:
         sample = var.samples.keys()[0]
         if var.samples[sample].phased:
+            ind = bisect.bisect_right(idls[var.chrom], var.pos)
+            if ind > 0:
+                var.samples[sample]['PS'] = idls[var.chrom][ind-1]
             strt = bisect.bisect_right(start_pos[var.chrom], var.pos)
             end = bisect.bisect_right(end_pos[var.chrom], var.pos)
             if strt == end + 1:
@@ -524,9 +529,45 @@ def rephase_vcf(df, vcf_in, out_vcf):
                 var.samples[sample].phased = True
         vcf_out.write(var)
     vcf_out.close()
+
 def index_vcf(out_vcf):
-    bcf_cmd = ['bcftols', 'index', out_vcf]
+    bcf_cmd = ['bcftools', 'index', out_vcf]
     bcf_1 = subprocess.Popen(bcf_cmd, stdout=subprocess.PIPE)
     bcf_1.wait()
     if bcf_1.returncode != 0:
         raise ValueError('bcftols index subprocess returned nonzero value: {}'.format(bcf_1.returncode))
+def _calc_nx(lengths, norm_len, rate):
+    n50 = 0
+    sum_len = 0
+    l50 = 0
+    for l in sorted(lengths, reverse=True):
+        sum_len += l
+        l50 += 1
+        if sum_len > rate * norm_len:
+            n50 = l
+            break
+    return l50, n50
+def get_phasingblocks(hb_vcf):
+    MIN_BLOCK_LEN = 10000
+    MIN_SNP = 10
+    vcf = pysam.VariantFile(hb_vcf)
+    haplotype_blocks = defaultdict(list)
+    startpoint_list = defaultdict(list)
+    endpoint_list = defaultdict(list)
+    switch_points = defaultdict(list)
+    id_list = defaultdict(list)
+    for var in vcf:
+        if 'PS' in var.samples.items()[0][1].items()[-1] and var.samples.items()[0][1]['PS']:
+            haplotype_blocks[(var.chrom, var.samples.items()[0][1]['PS'])].append(var.pos)
+    phased_lengths = []
+    for (chr_id, block_name), coords in haplotype_blocks.items():
+        if max(coords) - min(coords) > MIN_BLOCK_LEN and len(coords) >= MIN_SNP:
+            startpoint_list[chr_id].append(min(coords))
+            endpoint_list[chr_id].append(max(coords))
+            phased_lengths.append(max(coords) - min(coords))
+            id_list[chr_id].append(block_name)
+    total_phased = sum(phased_lengths)
+    _l50, n50 = _calc_nx(phased_lengths, total_phased, 0.50)
+    print(f"\tTotal phased length: {total_phased}")
+    print(f"\tPhase blocks N50: {n50}")
+    return (phased_lengths, haplotype_blocks)
