@@ -27,7 +27,7 @@ hapcorrect works with both tumor/normal pair and tumor-only data.
 To generate input for hapcorrect please follow the [following](https://github.com/KolmogorovLab/Wakhan/tree/main?tab=readme-ov-file#prerequisite) instructions.
 
 
-### Tumor-Normal Mode (requires tumor BAM and normal phased VCF)
+### Tumor-Normal pair (requires tumor BAM and normal phased VCF)
 ```
 python main.py --threads <4> --reference <ref.fa>  --target-bam <data.tumor.bam>  --normal-phased-vcf <data.normal_phased.vcf.gz>  --genome-name <cellline/dataset name> --cut-threshold <150> --out-dir-plots <genome_abc_output>
 ```
