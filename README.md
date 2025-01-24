@@ -1,6 +1,6 @@
 # hapcorrect
 
-###### Note: This repository is under extensive updates.
+###### Note: This repository is now part of [Wakhan](https://github.com/KolmogorovLab/Wakhan/).
 
 hapcorrect takes long-read alignment and phased heterozygous variants as input, and corrects the haplotypes phase-switching errors in BAMs around phased blocks as well as inside phase-blocks.
 
